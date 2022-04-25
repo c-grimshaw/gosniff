@@ -19,7 +19,7 @@ import (
 const NUM_ITEMS = 3
 
 type model struct {
-	interfaces []string
+	interfaces []pcap.Interface
 	cursor     int
 	focusIndex int
 	selected   int
@@ -114,7 +114,7 @@ func newModel() model {
 }
 
 func (m model) Init() tea.Cmd {
-	return textinput.Blink
+	return tea.EnterAltScreen
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -145,7 +145,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				break
 			}
 			if m.focusIndex == m.submit {
-				m.start()
+				go m.start()
 			}
 			m.selected = m.cursor
 		case key.Matches(msg, DefaultKeyMap.Next):
@@ -176,7 +176,7 @@ func mod(x, m int) int {
 }
 
 func (m *model) start() {
-	iface = m.interfaces[m.selected]
+	iface := m.interfaces[m.selected].Name
 	handle, err := pcap.OpenLive(iface, snaplen, promisc, timeout)
 	if err != nil {
 		log.Panicln(err)
@@ -218,7 +218,10 @@ func (m model) View() string {
 		}
 
 		// Render the row
-		s += fmt.Sprintf("%s [%s] %s\n", cursor, checked, choice)
+		s += fmt.Sprintf("%s [%s] %s\n", cursor, checked, choice.Description)
+		for _, addr := range choice.Addresses {
+			s += fmt.Sprintf("\t- [%v]\n", addr.IP)
+		}
 	}
 	s += fmt.Sprintf("\nFilter:\n %s\n\n", m.textinput.View())
 	if m.focusIndex == 2 {
@@ -228,7 +231,7 @@ func (m model) View() string {
 	}
 
 	helpView := m.help.View(m.keys)
-	height := 2
+	height := 4
 	return "\n" + s + strings.Repeat("\n", height) + helpView
 }
 
@@ -240,11 +243,9 @@ var (
 	promisc      = false
 	timeout      = pcap.BlockForever
 	filter       = "tcp and port 80"
-	devFound     = false
 )
 
 func main() {
-
 	p := tea.NewProgram(newModel())
 	if err := p.Start(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
