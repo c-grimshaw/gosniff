@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/google/gopacket"
@@ -23,28 +24,47 @@ type model struct {
 	focusIndex int
 	selected   int
 	submit     int
+	recording  bool
+	content    string
 	keys       KeyMap
 	help       help.Model
-	recording  bool
 	textinput  textinput.Model
+	viewport   viewport.Model
 }
 
 // KeyMap contains a list of key bindings
 type KeyMap struct {
-	Up    key.Binding
-	Down  key.Binding
-	Exit  key.Binding
-	Next  key.Binding
-	Enter key.Binding
-	Help  key.Binding
+	Up      key.Binding
+	Down    key.Binding
+	Exit    key.Binding
+	Next    key.Binding
+	Enter   key.Binding
+	Help    key.Binding
+	Display key.Binding
 }
 
 var (
-	noStyle      = lipgloss.NewStyle()
-	focusedStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
-	snaplen      = int32(1600)
-	promisc      = false
-	timeout      = pcap.BlockForever
+	titleStyle = func() lipgloss.Style {
+		b := lipgloss.RoundedBorder()
+		b.Right = "├"
+		return lipgloss.NewStyle().BorderStyle(b).Padding(0, 1)
+	}()
+
+	infoStyle = func() lipgloss.Style {
+		b := lipgloss.RoundedBorder()
+		b.Left = "┤"
+		return titleStyle.Copy().BorderStyle(b)
+	}()
+)
+
+var (
+	noStyle          = lipgloss.NewStyle()
+	focusedStyle     = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
+	placeholderStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+
+	snaplen = int32(1600)
+	promisc = false
+	timeout = pcap.BlockForever
 )
 
 // GetInterfaces returns all host interfaces in string format
@@ -56,9 +76,9 @@ func GetInterfaces() (interfaces []pcap.Interface, err error) {
 	}
 
 	for _, i := range ifaces {
-		if len(i.Addresses) > 0 {
-			interfaces = append(interfaces, i)
-		}
+		// if len(i.Addresses) > 0 {
+		interfaces = append(interfaces, i)
+		// }
 	}
 
 	return interfaces, nil
@@ -105,9 +125,14 @@ var DefaultKeyMap = KeyMap{
 		key.WithKeys("enter", " "),
 		key.WithHelp("enter/spacebar", "Check/Uncheck box"),
 	),
+	Display: key.NewBinding(
+		key.WithKeys("o"),
+		key.WithHelp("o", "display"),
+	),
 }
 
-func NewModel() model {
+// NewModel returns a gosniff model with default parameters
+func NewModel() *model {
 	ifaces, err := GetInterfaces()
 	if err != nil {
 		fmt.Println("Error: ", err)
@@ -122,29 +147,36 @@ func NewModel() model {
 	help := help.New()
 	help.ShowAll = true
 
-	return model{
+	return &model{
 		interfaces: ifaces,
 		keys:       DefaultKeyMap,
 		help:       help,
 		selected:   -1,
 		submit:     2,
 		textinput:  ti,
+		viewport:   viewport.New(80, 30),
 	}
 }
 
 func (m model) Init() tea.Cmd {
-	return tea.EnterAltScreen
+	return nil
 }
 
-func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
+
+	case packetMsg:
+		m.content = m.content + fmt.Sprintf("%s\n", msg)
+		m.viewport.SetContent(m.content)
+		m.viewport, cmd = m.viewport.Update(msg)
+		m.viewport.GotoBottom()
+		return m, cmd
 	case tea.WindowSizeMsg:
 		// If we set a width on the help menu it can it can gracefully truncate
 		// its view as needed.
 		m.help.Width = msg.Width
-
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, DefaultKeyMap.Exit):
@@ -153,6 +185,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.cursor < len(m.interfaces)-1 && m.focusIndex == 0 {
 				m.cursor++
 			}
+		case key.Matches(msg, DefaultKeyMap.Display):
+			m.content += "hello world\n"
+			m.viewport.SetContent(m.content)
+			m.viewport, cmd = m.viewport.Update(msg)
+			m.viewport.GotoBottom()
+			return m, cmd
 		case key.Matches(msg, DefaultKeyMap.Up):
 			if m.cursor > 0 && m.focusIndex == 0 {
 				m.cursor--
@@ -189,6 +227,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	m.viewport, cmd = m.viewport.Update(msg)
 	// Text Input Processing
 	if m.textFieldFocused() {
 		// Set focused state
@@ -205,6 +244,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+type packetMsg string
+
+func Process(packet gopacket.Packet) tea.Msg {
+	return packetMsg(packet.String())
+}
+
 func (m *model) start() {
 	iface := m.interfaces[m.selected].Name
 	handle, err := pcap.OpenLive(iface, snaplen, promisc, timeout)
@@ -219,7 +264,7 @@ func (m *model) start() {
 
 	source := gopacket.NewPacketSource(handle, handle.LinkType())
 	for packet := range source.Packets() {
-		fmt.Println(packet)
+		m.Update(Process(packet))
 	}
 }
 
@@ -239,40 +284,68 @@ func mod(x, m int) int {
 	return (x%m + m) % m
 }
 
-func (m model) View() string {
-	// The header
-	s := lipgloss.NewStyle().Bold(true).Underline(true).Render("//GOSNIFF//")
-	s += "\n\nInterface:\n"
-
-	// Iterate over our choices
-	for i, choice := range m.interfaces {
-
-		// Is the cursor pointing at this choice?
-		cursor := " " // no cursor
-		if m.cursor == i && m.focusIndex == 0 {
-			cursor = focusedStyle.Render(">") // cursor
-		}
-
-		// Is this choice selected?
-		checked := " " // not selected
-		if i == m.selected {
-			checked = focusedStyle.Render("x")
-		}
-
-		// Render the row
-		s += fmt.Sprintf("%s [%s] %s\n", cursor, checked, choice.Description)
-		for _, addr := range choice.Addresses {
-			s += fmt.Sprintf("\t- [%v]\n", addr.IP)
-		}
+func (m model) headerView() string {
+	title := titleStyle.Render("GOSNIFF")
+	if m.recording {
+		title = titleStyle.Render("GOSNIFF - RECORDING")
 	}
-	s += fmt.Sprintf("\nFilter:\n %s\n\n", m.textinput.View())
+	line := strings.Repeat("─", max(0, m.viewport.Width-lipgloss.Width(title)))
+	return lipgloss.JoinHorizontal(lipgloss.Center, title, line)
+}
+
+func (m model) footerView() string {
+	info := infoStyle.Render(fmt.Sprintf("%3.f%%", m.viewport.ScrollPercent()*100))
+	line := strings.Repeat("─", max(0, m.viewport.Width-lipgloss.Width(info)))
+	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func (m model) View() string {
+	titleBlock := "//GOSNIFF//\n"
+	s := "Interface:"
+	s = lipgloss.JoinVertical(lipgloss.Left, titleBlock, s)
+
+	s = lipgloss.JoinVertical(lipgloss.Left, s, m.InterfaceView(m.interfaces))
+
+	s = lipgloss.JoinVertical(lipgloss.Left, s, fmt.Sprintf("\nFilter:\n %s\n\n", m.textinput.View()))
+
 	if m.focusIndex == 2 {
-		s += focusedStyle.Render("[ Start ]\n")
+		s = lipgloss.JoinVertical(lipgloss.Center, s, focusedStyle.Render("[ Start ]\n"))
 	} else {
-		s += "[ Start ]\n"
+		s = lipgloss.JoinVertical(lipgloss.Center, s, "[ Start ]\n")
 	}
 
 	helpView := m.help.View(m.keys)
-	height := 2
-	return "\n" + s + strings.Repeat("\n", height) + helpView
+	s = lipgloss.JoinVertical(lipgloss.Left, s, "\n"+helpView)
+	block := lipgloss.NewStyle().MaxWidth(100).Render(s)
+	block2 := fmt.Sprintf("%s\n%s\n%s", m.headerView(), m.viewport.View(), m.footerView())
+	block2 = lipgloss.NewStyle().MaxWidth(100).Render(block2)
+	return lipgloss.JoinHorizontal(lipgloss.Left, block, block2)
+}
+
+func (m *model) InterfaceView(interfaces []pcap.Interface) (view string) {
+	for i, choice := range m.interfaces {
+		cursor := " "
+		if m.cursor == i && m.focusIndex == 0 {
+			cursor = ">"
+		}
+
+		checked := " "
+		description := choice.Description
+		if i == m.selected {
+			checked = "x"
+		}
+
+		view = lipgloss.JoinVertical(lipgloss.Left, view, fmt.Sprintf("%s [%s] %s", cursor, checked, description))
+		for _, addr := range choice.Addresses {
+			view = lipgloss.JoinVertical(lipgloss.Left, view, placeholderStyle.Render(fmt.Sprintf("       - [%v]", addr.IP)))
+		}
+	}
+	return view
 }

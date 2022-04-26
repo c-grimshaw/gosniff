@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	p := tea.NewProgram(gosniff.NewModel())
+	p := tea.NewProgram(gosniff.NewModel(), tea.WithAltScreen(), tea.WithMouseCellMotion())
 	if err := p.Start(); err != nil {
 		log.Fatalf("Alas, there's been an error: %v", err)
 	}
