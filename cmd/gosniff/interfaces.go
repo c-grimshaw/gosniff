@@ -69,18 +69,11 @@ var (
 
 // GetInterfaces returns all host interfaces in string format
 func GetInterfaces() (interfaces []pcap.Interface, err error) {
-	ifaces, err := pcap.FindAllDevs()
+	interfaces, err = pcap.FindAllDevs()
 	if err != nil {
 		fmt.Println("Error: No host interfaces")
 		return interfaces, err
 	}
-
-	for _, i := range ifaces {
-		// if len(i.Addresses) > 0 {
-		interfaces = append(interfaces, i)
-		// }
-	}
-
 	return interfaces, nil
 }
 
@@ -133,7 +126,7 @@ var DefaultKeyMap = KeyMap{
 
 // NewModel returns a gosniff model with default parameters
 func NewModel() *model {
-	ifaces, err := GetInterfaces()
+	interfaces, err := GetInterfaces()
 	if err != nil {
 		fmt.Println("Error: ", err)
 		os.Exit(1)
@@ -148,7 +141,7 @@ func NewModel() *model {
 	help.ShowAll = true
 
 	return &model{
-		interfaces: ifaces,
+		interfaces: interfaces,
 		keys:       DefaultKeyMap,
 		help:       help,
 		selected:   -1,
@@ -163,38 +156,38 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
+	var (
+		cmd  tea.Cmd
+		cmds []tea.Cmd
+	)
 
 	switch msg := msg.(type) {
-
 	case packetMsg:
-		m.content = m.content + fmt.Sprintf("%s\n", msg)
+		m.content += msg.String() + "\n"
 		m.viewport.SetContent(m.content)
 		m.viewport, cmd = m.viewport.Update(msg)
 		m.viewport.GotoBottom()
-		return m, cmd
+		cmds = append(cmds, cmd)
+
 	case tea.WindowSizeMsg:
-		// If we set a width on the help menu it can it can gracefully truncate
-		// its view as needed.
 		m.help.Width = msg.Width
+
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, DefaultKeyMap.Exit):
 			return m, tea.Quit
+		case key.Matches(msg, DefaultKeyMap.Up):
+			m.cursorUp()
 		case key.Matches(msg, DefaultKeyMap.Down):
-			if m.cursor < len(m.interfaces)-1 && m.focusIndex == 0 {
-				m.cursor++
-			}
+			m.cursorDown()
+		case key.Matches(msg, DefaultKeyMap.Next):
+			m.handleTab(msg.String())
 		case key.Matches(msg, DefaultKeyMap.Display):
 			m.content += "hello world\n"
 			m.viewport.SetContent(m.content)
 			m.viewport, cmd = m.viewport.Update(msg)
 			m.viewport.GotoBottom()
-			return m, cmd
-		case key.Matches(msg, DefaultKeyMap.Up):
-			if m.cursor > 0 && m.focusIndex == 0 {
-				m.cursor--
-			}
+			cmds = append(cmds, cmd)
 		case key.Matches(msg, DefaultKeyMap.Help):
 			if !m.textFieldFocused() {
 				m.help.ShowAll = !m.help.ShowAll
@@ -217,17 +210,14 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					go m.start()
 				}
 			}
-		case key.Matches(msg, DefaultKeyMap.Next):
-			switch msg.String() {
-			case "tab":
-				m.focusIndex = mod(m.focusIndex+1, NUM_ITEMS)
-			case "shift+tab":
-				m.focusIndex = mod(m.focusIndex-1, NUM_ITEMS)
-			}
 		}
 	}
 
 	m.viewport, cmd = m.viewport.Update(msg)
+	cmds = append(cmds, cmd)
+
+	m.textinput, cmd = m.textinput.Update(msg)
+	cmds = append(cmds, cmd)
 	// Text Input Processing
 	if m.textFieldFocused() {
 		// Set focused state
@@ -240,15 +230,14 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.textinput.PromptStyle = noStyle
 		m.textinput.TextStyle = noStyle
 	}
-	m.textinput, cmd = m.textinput.Update(msg)
-	return m, cmd
+	return m, tea.Batch(cmds...)
 }
 
 type packetMsg string
 
-func Process(packet gopacket.Packet) tea.Msg {
-	return packetMsg(packet.String())
-}
+func (p packetMsg) String() string { return string(p) }
+
+func Process(packet gopacket.Packet) tea.Msg { return packetMsg(packet.String()) }
 
 func (m *model) start() {
 	iface := m.interfaces[m.selected].Name
@@ -268,22 +257,6 @@ func (m *model) start() {
 	}
 }
 
-func (m *model) interfaceFieldFocused() bool {
-	return m.focusIndex == 0
-}
-
-func (m *model) textFieldFocused() bool {
-	return m.focusIndex == 1
-}
-
-func (m *model) submitFieldFocused() bool {
-	return m.focusIndex == 2
-}
-
-func mod(x, m int) int {
-	return (x%m + m) % m
-}
-
 func (m model) headerView() string {
 	title := titleStyle.Render("GOSNIFF")
 	if m.recording {
@@ -297,13 +270,6 @@ func (m model) footerView() string {
 	info := infoStyle.Render(fmt.Sprintf("%3.f%%", m.viewport.ScrollPercent()*100))
 	line := strings.Repeat("─", max(0, m.viewport.Width-lipgloss.Width(info)))
 	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 func (m model) View() string {
@@ -348,4 +314,48 @@ func (m *model) InterfaceView(interfaces []pcap.Interface) (view string) {
 		}
 	}
 	return view
+}
+
+func (m *model) cursorUp() {
+	if m.cursor > 0 && m.focusIndex == 0 {
+		m.cursor--
+	}
+}
+
+func (m *model) cursorDown() {
+	if m.cursor < len(m.interfaces)-1 && m.focusIndex == 0 {
+		m.cursor++
+	}
+}
+
+func (m *model) handleTab(key string) {
+	switch key {
+	case "tab":
+		m.focusIndex = mod(m.focusIndex+1, NUM_ITEMS)
+	case "shift+tab":
+		m.focusIndex = mod(m.focusIndex-1, NUM_ITEMS)
+	}
+}
+
+func (m *model) interfaceFieldFocused() bool {
+	return m.focusIndex == 0
+}
+
+func (m *model) textFieldFocused() bool {
+	return m.focusIndex == 1
+}
+
+func (m *model) submitFieldFocused() bool {
+	return m.focusIndex == 2
+}
+
+func mod(x, m int) int {
+	return (x%m + m) % m
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
