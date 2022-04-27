@@ -8,6 +8,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/google/gopacket"
 	"github.com/google/gopacket/pcap"
 )
 
@@ -23,6 +24,7 @@ type model struct {
 	help       help.Model
 	textinput  textinput.Model
 	viewport   viewport.Model
+	packetChan chan (gopacket.Packet)
 }
 
 func (m model) Init() tea.Cmd {
@@ -53,5 +55,6 @@ func NewModel() *model {
 		submit:     submitInput,
 		textinput:  ti,
 		viewport:   viewport.New(80, 30),
+		packetChan: make(chan gopacket.Packet),
 	}
 }
