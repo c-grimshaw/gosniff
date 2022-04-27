@@ -1,4 +1,4 @@
-## GOSNIFF - A TEXTUAL USER-INTERFACE NETWORK SNIFFER
+## GOSNIFF - A Textual User-Interface Network Sniffer
 
 ![image](https://user-images.githubusercontent.com/23296141/165598657-0b70e77b-fa97-4bf1-a013-6e273c443ddd.png)
 
