@@ -1,6 +1,6 @@
 ## GOSNIFF - A Textual User-Interface Network Sniffer
 
-![image](https://user-images.githubusercontent.com/23296141/165598657-0b70e77b-fa97-4bf1-a013-6e273c443ddd.png)
+![image](https://user-images.githubusercontent.com/23296141/165657427-fa491a19-0fe0-4a07-a055-dad186481b67.png)
 
 
 **GOSNIFF** is a TUI-based, *tcpdump*-inspired tool used to provide some graphical insight into networking on your computer. 
