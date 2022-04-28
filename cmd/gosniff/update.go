@@ -47,6 +47,11 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.GotoBottom()
 		return m, waitForPacket(m.packetChan)
 
+	case stopMsg:
+		m.stopChan <- false
+		m.recording = false
+		return m, waitForStop(m.stopChan)
+
 	case tea.WindowSizeMsg:
 		m.help.Width = msg.Width
 
@@ -78,42 +83,55 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
+// packetMsg is a data message sent from the packet filter
 type packetMsg string
 
 func (p packetMsg) String() string { return string(p) }
 
-func Process(packet gopacket.Packet) tea.Msg { return packetMsg(packet.String()) }
+// stopMsg is a control message sent to stop the packet filter
+type stopMsg struct{}
 
+// start is used to turn on the packet filter with user-specified inputs
 func (m *model) start() {
 	iface := m.interfaces[m.selected].Name
 	handle, err := pcap.OpenLive(iface, snaplen, promisc, timeout)
+	// TODO: Return errors on prompt
 	if err != nil {
 		log.Panicln(err)
 	}
 	defer handle.Close()
 
+	// TODO: Return errors on prompt
 	if err := handle.SetBPFFilter(m.textinput.Value()); err != nil {
 		log.Panicln(err)
 	}
 
 	source := gopacket.NewPacketSource(handle, handle.LinkType())
-	for packet := range source.Packets() {
-		m.packetChan <- packet
+	for {
+		select {
+		case packet := <-source.Packets():
+			m.packetChan <- packet
+		case <-m.stopChan:
+			return
+		}
 	}
 }
 
+// cursorUp moves the cursor up under the interfaces input
 func (m *model) cursorUp() {
 	if m.cursor > 0 && m.focusIndex == 0 {
 		m.cursor--
 	}
 }
 
+// cursorDown moves the cursor down under the interfaces input
 func (m *model) cursorDown() {
 	if m.cursor < len(m.interfaces)-1 && m.focusIndex == 0 {
 		m.cursor++
 	}
 }
 
+// handleTab controls tab movement through input fields
 func (m *model) handleTab(key string) {
 	switch key {
 	case "tab":
@@ -135,23 +153,39 @@ func (m *model) handleTab(key string) {
 	}
 }
 
+// handleEnter controls enter behaviour over input fields
 func (m *model) handleEnter() {
-	if m.focusIndex == interfaceInput {
-		if m.selected == m.cursor {
-			m.selected = -1
+	switch m.focusIndex {
+	case interfaceInput:
+		m.selected = m.cursor
+
+	case filterInput:
+		break
+
+	case submitInput:
+		// Start the packet listener goroutine
+		if !m.recording {
+			m.recording = !m.recording
+			go m.start()
 		} else {
-			m.selected = m.cursor
+			m.stopChan <- true
 		}
-	}
-	if m.focusIndex == submitInput && !m.recording {
-		m.recording = !m.recording
-		go m.start()
 	}
 }
 
+// waitForPacket is a listener that sends received packets to the main model for display
+// in the viewport component
 func waitForPacket(packet chan gopacket.Packet) tea.Cmd {
 	return func() tea.Msg {
 		return packetMsg((<-packet).String())
+	}
+}
+
+// waitForStop is a listener that emits a stopMsg when the recording is stopped
+func waitForStop(stop chan bool) tea.Cmd {
+	return func() tea.Msg {
+		<-stop
+		return stopMsg{}
 	}
 }
 

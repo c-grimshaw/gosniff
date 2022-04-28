@@ -28,8 +28,12 @@ type model struct {
 	stopChan   chan (bool)
 }
 
+// Init contains initial I/O commands executed by the model
 func (m model) Init() tea.Cmd {
-	return waitForPacket(m.packetChan)
+	return tea.Batch(
+		waitForPacket(m.packetChan),
+		waitForStop(m.stopChan),
+	)
 }
 
 // NewModel returns a gosniff model with default parameters
