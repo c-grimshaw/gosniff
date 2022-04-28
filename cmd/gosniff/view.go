@@ -16,6 +16,10 @@ var (
 
 func (m *model) View() string {
 	var view strings.Builder
+	buttonInputs := lipgloss.JoinVertical(lipgloss.Center,
+		lipgloss.JoinHorizontal(lipgloss.Center, m.submitView(), "      ", m.clearView()),
+		gap(1),
+		m.helpView())
 	view.WriteString(
 		lipgloss.JoinVertical(
 			lipgloss.Left,
@@ -25,15 +29,12 @@ func (m *model) View() string {
 			gap(1),
 			m.filterView(),
 			gap(1),
-			m.submitView(),
-			gap(1),
-			m.helpView()),
+			buttonInputs),
 	)
 
-	block := lipgloss.NewStyle().MaxWidth(100).Render(view.String())
-	block2 := fmt.Sprintf("%s\n%s\n%s", m.headerView(), m.viewport.View(), m.footerView())
-	block2 = lipgloss.NewStyle().MaxWidth(100).Render(block2)
-	return lipgloss.JoinHorizontal(lipgloss.Left, block, block2)
+	block := noStyle.MaxWidth(100).Render(view.String())
+	viewport := noStyle.MaxWidth(100).Render(m.viewportView())
+	return lipgloss.JoinHorizontal(lipgloss.Left, block, viewport)
 }
 
 func (m *model) titleView() (view string) {
@@ -44,17 +45,15 @@ func (m *model) interfaceView() (view string) {
 	view = "Interface:"
 	for i, choice := range m.interfaces {
 		cursor := " "
-		if m.cursor == i && m.focusIndex == interfaceInput {
+		if m.focus == i && m.focusedInterfaces() {
 			cursor = ">"
 		}
 
-		row := ""
+		row := fmt.Sprintf("%s [ ] %s", cursor, choice.Description)
 		if m.selected == i {
-			row = fmt.Sprintf("%s [x] %s", cursor, choice.Description)
-			row = focusedStyle.Render(row)
-		} else {
-			row = fmt.Sprintf("%s [ ] %s", cursor, choice.Description)
+			row = focusedStyle.Render(fmt.Sprintf("%s [x] %s", cursor, choice.Description))
 		}
+
 		view = lipgloss.JoinVertical(lipgloss.Left, view, row)
 		for _, addr := range choice.Addresses {
 			view = lipgloss.JoinVertical(lipgloss.Left, view, placeholderStyle.Render(fmt.Sprintf("       - [%v]", addr.IP)))
@@ -65,7 +64,7 @@ func (m *model) interfaceView() (view string) {
 
 func (m *model) filterView() (view string) {
 	view = "Filter:"
-	if len(m.textinput.Value()) > 0 {
+	if m.focusedFilter() || len(m.textinput.Value()) > 0 {
 		return lipgloss.JoinVertical(lipgloss.Left, view, focusedStyle.Render(m.textinput.View()))
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, view, m.textinput.View())
@@ -77,7 +76,15 @@ func (m *model) submitView() (view string) {
 		view = "[ Stop ]"
 	}
 
-	if m.focusIndex == submitInput {
+	if m.focusedSubmit() {
+		view = focusedStyle.Render(view)
+	}
+	return view
+}
+
+func (m *model) clearView() (view string) {
+	view = "[ Clear ]"
+	if m.focusedClear() {
 		view = focusedStyle.Render(view)
 	}
 	return view
@@ -92,10 +99,10 @@ func (m model) headerView() (view string) {
 	return lipgloss.JoinHorizontal(lipgloss.Center, view, line)
 }
 
-func (m model) footerView() string {
-	info := viewportStyle.Render(fmt.Sprintf("%3.f%%", m.viewport.ScrollPercent()*100))
-	line := strings.Repeat("─", max(0, m.viewport.Width-lipgloss.Width(info)))
-	return lipgloss.JoinHorizontal(lipgloss.Center, line, info)
+func (m model) footerView() (view string) {
+	view = viewportStyle.Render(fmt.Sprintf("%3.f%%", m.viewport.ScrollPercent()*100))
+	line := strings.Repeat("─", max(0, m.viewport.Width-lipgloss.Width(view)))
+	return lipgloss.JoinHorizontal(lipgloss.Center, line, view)
 }
 
 func (m *model) helpView() string {

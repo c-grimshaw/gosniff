@@ -10,13 +10,6 @@ import (
 	"github.com/google/gopacket/pcap"
 )
 
-const INPUTS = 3
-const (
-	interfaceInput = iota
-	filterInput
-	submitInput
-)
-
 var (
 	snaplen = int32(1600)
 	promisc = false
@@ -43,7 +36,6 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case packetMsg:
 		m.content += msg.String() + "\n"
 		m.viewport.SetContent(m.content)
-		m.viewport, cmd = m.viewport.Update(msg)
 		m.viewport.GotoBottom()
 		return m, waitForPacket(m.packetChan)
 
@@ -68,7 +60,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, DefaultKeyMap.Enter):
 			m.handleEnter()
 		case key.Matches(msg, DefaultKeyMap.Help):
-			if !(m.focusIndex == filterInput) {
+			if !(m.focusedFilter()) {
 				m.help.ShowAll = !m.help.ShowAll
 			}
 		}
@@ -119,15 +111,15 @@ func (m *model) start() {
 
 // cursorUp moves the cursor up under the interfaces input
 func (m *model) cursorUp() {
-	if m.cursor > 0 && m.focusIndex == 0 {
-		m.cursor--
+	if m.focus > 0 {
+		m.focus--
 	}
 }
 
 // cursorDown moves the cursor down under the interfaces input
 func (m *model) cursorDown() {
-	if m.cursor < len(m.interfaces)-1 && m.focusIndex == 0 {
-		m.cursor++
+	if m.focus < m.inputs {
+		m.focus++
 	}
 }
 
@@ -135,12 +127,12 @@ func (m *model) cursorDown() {
 func (m *model) handleTab(key string) {
 	switch key {
 	case "tab":
-		m.focusIndex = mod(m.focusIndex+1, INPUTS)
+		m.focus = mod(m.focus+1, m.inputs)
 	case "shift+tab":
-		m.focusIndex = mod(m.focusIndex-1, INPUTS)
+		m.focus = mod(m.focus-1, m.inputs)
 	}
 
-	if m.focusIndex == filterInput {
+	if m.focusedFilter() {
 		// Set focused state
 		m.textinput.Focus()
 		m.textinput.PromptStyle = focusedStyle
@@ -155,14 +147,13 @@ func (m *model) handleTab(key string) {
 
 // handleEnter controls enter behaviour over input fields
 func (m *model) handleEnter() {
-	switch m.focusIndex {
-	case interfaceInput:
-		m.selected = m.cursor
-
-	case filterInput:
-		break
-
-	case submitInput:
+	if m.focusedInterfaces() {
+		m.selected = m.focus
+	}
+	if m.focusedFilter() {
+		return
+	}
+	if m.focusedSubmit() {
 		// Start the packet listener goroutine
 		if !m.recording {
 			m.recording = !m.recording
@@ -170,6 +161,11 @@ func (m *model) handleEnter() {
 		} else {
 			m.stopChan <- true
 		}
+		return
+	}
+	if m.focusedClear() {
+		m.content = ""
+		m.viewport.SetContent(m.content)
 	}
 }
 
@@ -189,6 +185,28 @@ func waitForStop(stop chan bool) tea.Cmd {
 	}
 }
 
+func (m *model) focusInterfaces() { m.focus = 0 }
+func (m *model) focusedInterfaces() bool {
+	return m.focus >= 0 && m.focus < len(m.interfaces)
+}
+func (m *model) focusFilter() {
+	m.focus = len(m.interfaces)
+}
+func (m *model) focusedFilter() bool {
+	return m.focus == len(m.interfaces)
+}
+func (m *model) focusSubmit() {
+	m.focus = len(m.interfaces) + 1
+}
+func (m *model) focusedSubmit() bool {
+	return m.focus == len(m.interfaces)+1
+}
+func (m *model) focusClear() {
+	m.focus = len(m.interfaces) + 2
+}
+func (m *model) focusedClear() bool {
+	return m.focus == len(m.interfaces)+2
+}
 func mod(x, m int) int {
 	return (x%m + m) % m
 }

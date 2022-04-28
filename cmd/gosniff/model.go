@@ -12,20 +12,20 @@ import (
 	"github.com/google/gopacket/pcap"
 )
 
+// Including filter, submit, and clear
+const NUM_INPUTS = 3
+
 type model struct {
-	interfaces []pcap.Interface
-	cursor     int
-	focusIndex int
-	selected   int
-	submit     int
-	recording  bool
-	content    string
-	keys       KeyMap
-	help       help.Model
-	textinput  textinput.Model
-	viewport   viewport.Model
-	packetChan chan (gopacket.Packet)
-	stopChan   chan (bool)
+	interfaces              []pcap.Interface
+	selected, focus, inputs int
+	recording               bool
+	content                 string
+	keys                    KeyMap
+	help                    help.Model
+	textinput               textinput.Model
+	viewport                viewport.Model
+	packetChan              chan (gopacket.Packet)
+	stopChan                chan (bool)
 }
 
 // Init contains initial I/O commands executed by the model
@@ -56,8 +56,7 @@ func NewModel() *model {
 		interfaces: interfaces,
 		keys:       DefaultKeyMap,
 		help:       help,
-		selected:   -1,
-		submit:     submitInput,
+		inputs:     len(interfaces) + NUM_INPUTS,
 		textinput:  ti,
 		viewport:   viewport.New(80, 30),
 		packetChan: make(chan gopacket.Packet),
