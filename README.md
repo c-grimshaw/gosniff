@@ -10,3 +10,5 @@ https://user-images.githubusercontent.com/23296141/165829682-2fd4c2c6-af96-4a6a-
 
 Currently, it supports
 [Berkeley Packet Filter (BPF) syntax](https://biot.com/capstats/bpf.html), identical to filtering syntax in tools like Wireshark or, y'know, tcpdump.
+
+[![Go Report Card](https://goreportcard.com/badge/github.com/c-grimshaw/gosniff)](https://goreportcard.com/report/github.com/c-grimshaw/gosniff)
