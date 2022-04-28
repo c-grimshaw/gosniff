@@ -25,10 +25,11 @@ type model struct {
 	textinput  textinput.Model
 	viewport   viewport.Model
 	packetChan chan (gopacket.Packet)
+	stopChan   chan (bool)
 }
 
 func (m model) Init() tea.Cmd {
-	return nil
+	return waitForPacket(m.packetChan)
 }
 
 // NewModel returns a gosniff model with default parameters
@@ -56,5 +57,6 @@ func NewModel() *model {
 		textinput:  ti,
 		viewport:   viewport.New(80, 30),
 		packetChan: make(chan gopacket.Packet),
+		stopChan:   make(chan bool),
 	}
 }

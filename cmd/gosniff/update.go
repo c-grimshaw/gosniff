@@ -45,7 +45,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.SetContent(m.content)
 		m.viewport, cmd = m.viewport.Update(msg)
 		m.viewport.GotoBottom()
-		cmds = append(cmds, cmd)
+		return m, waitForPacket(m.packetChan)
 
 	case tea.WindowSizeMsg:
 		m.help.Width = msg.Width
@@ -98,7 +98,7 @@ func (m *model) start() {
 
 	source := gopacket.NewPacketSource(handle, handle.LinkType())
 	for packet := range source.Packets() {
-		m.Update(Process(packet))
+		m.packetChan <- packet
 	}
 }
 
@@ -146,6 +146,12 @@ func (m *model) handleEnter() {
 	if m.focusIndex == submitInput && !m.recording {
 		m.recording = !m.recording
 		go m.start()
+	}
+}
+
+func waitForPacket(packet chan gopacket.Packet) tea.Cmd {
+	return func() tea.Msg {
+		return packetMsg((<-packet).String())
 	}
 }
 
