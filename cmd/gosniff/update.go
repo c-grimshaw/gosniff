@@ -55,8 +55,6 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cursorUp()
 		case key.Matches(msg, DefaultKeyMap.Down):
 			m.cursorDown()
-		case key.Matches(msg, DefaultKeyMap.Next):
-			m.handleTab(msg.String())
 		case key.Matches(msg, DefaultKeyMap.Enter):
 			m.handleEnter()
 		case key.Matches(msg, DefaultKeyMap.Help):
@@ -69,7 +67,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.viewport, cmd = m.viewport.Update(msg)
 	cmds = append(cmds, cmd)
 
-	m.textinput, cmd = m.textinput.Update(msg)
+	m.filter, cmd = m.filter.Update(msg)
 	cmds = append(cmds, cmd)
 
 	return m, tea.Batch(cmds...)
@@ -84,7 +82,7 @@ func (p packetMsg) String() string { return string(p) }
 type stopMsg struct{}
 
 // start is used to turn on the packet filter with user-specified inputs
-func (m *model) start() {
+func (m *model) listenForPackets() {
 	iface := m.interfaces[m.selected].Name
 	handle, err := pcap.OpenLive(iface, snaplen, promisc, timeout)
 	// TODO: Return errors on prompt
@@ -94,7 +92,7 @@ func (m *model) start() {
 	defer handle.Close()
 
 	// TODO: Return errors on prompt
-	if err := handle.SetBPFFilter(m.textinput.Value()); err != nil {
+	if err := handle.SetBPFFilter(m.filter.Value()); err != nil {
 		log.Panicln(err)
 	}
 
@@ -111,61 +109,53 @@ func (m *model) start() {
 
 // cursorUp moves the cursor up under the interfaces input
 func (m *model) cursorUp() {
-	if m.focus > 0 {
-		m.focus--
-	}
+	m.focus = mod(m.focus-1, m.inputs)
+	m.checkFocus()
 }
 
 // cursorDown moves the cursor down under the interfaces input
 func (m *model) cursorDown() {
-	if m.focus < m.inputs {
-		m.focus++
-	}
-}
-
-// handleTab controls tab movement through input fields
-func (m *model) handleTab(key string) {
-	switch key {
-	case "tab":
-		m.focus = mod(m.focus+1, m.inputs)
-	case "shift+tab":
-		m.focus = mod(m.focus-1, m.inputs)
-	}
-
-	if m.focusedFilter() {
-		// Set focused state
-		m.textinput.Focus()
-		m.textinput.PromptStyle = focusedStyle
-		m.textinput.TextStyle = focusedStyle
-	} else {
-		// Remove focused state
-		m.textinput.Blur()
-		m.textinput.PromptStyle = noStyle
-		m.textinput.TextStyle = noStyle
-	}
+	m.focus = mod(m.focus+1, m.inputs)
+	m.checkFocus()
 }
 
 // handleEnter controls enter behaviour over input fields
+// TODO: Need better enumeration for inputs.
 func (m *model) handleEnter() {
-	if m.focusedInterfaces() {
+	switch i := m.focus; {
+
+	// cursor over interfaces
+	case i < len(m.interfaces):
 		m.selected = m.focus
-	}
-	if m.focusedFilter() {
-		return
-	}
-	if m.focusedSubmit() {
-		// Start the packet listener goroutine
+
+	// cursor over filter
+	case i == len(m.interfaces):
+		break
+
+	// cursor over submit
+	case i == len(m.interfaces)+1:
 		if !m.recording {
-			m.recording = !m.recording
-			go m.start()
+			m.recording = true
+			go m.listenForPackets()
 		} else {
 			m.stopChan <- true
 		}
-		return
-	}
-	if m.focusedClear() {
+
+	// cursor over clear
+	case i == len(m.interfaces)+2:
 		m.content = ""
 		m.viewport.SetContent(m.content)
+	}
+}
+
+func (m *model) checkFocus() {
+	switch i := m.focus; {
+	case i < len(m.interfaces):
+		m.filter.Focused = false
+	case i == len(m.interfaces):
+		m.filter.Focused = true
+	case i > len(m.interfaces):
+		m.filter.Focused = false
 	}
 }
 

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/c-grimshaw/gosniff/pkg/models/filter"
 	"github.com/charmbracelet/bubbles/help"
-	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/gopacket"
@@ -22,7 +22,7 @@ type model struct {
 	content                 string
 	keys                    KeyMap
 	help                    help.Model
-	textinput               textinput.Model
+	filter                  filter.Model
 	viewport                viewport.Model
 	packetChan              chan (gopacket.Packet)
 	stopChan                chan (bool)
@@ -44,11 +44,6 @@ func NewModel() *model {
 		os.Exit(1)
 	}
 
-	ti := textinput.New()
-	ti.Placeholder = "tcp and port 80"
-	ti.CharLimit = 156
-	ti.Width = 40
-
 	help := help.New()
 	help.ShowAll = true
 
@@ -57,7 +52,7 @@ func NewModel() *model {
 		keys:       DefaultKeyMap,
 		help:       help,
 		inputs:     len(interfaces) + NUM_INPUTS,
-		textinput:  ti,
+		filter:     filter.New(),
 		viewport:   viewport.New(80, 30),
 		packetChan: make(chan gopacket.Packet),
 		stopChan:   make(chan bool),

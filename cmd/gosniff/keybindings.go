@@ -9,7 +9,6 @@ type KeyMap struct {
 	Left  key.Binding
 	Right key.Binding
 	Exit  key.Binding
-	Next  key.Binding
 	Enter key.Binding
 	Help  key.Binding
 }
@@ -22,28 +21,24 @@ func (k KeyMap) ShortHelp() []key.Binding {
 // FullHelp returns keybindings for the expanded help view
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Up, k.Down, k.Help},    // first column
-		{k.Exit, k.Enter, k.Next}, // second column
+		{k.Up, k.Down, k.Help}, // first column
+		{k.Exit, k.Enter},      // second column
 	}
 }
 
 // DefaultKeyMap describes the default key bindings
 var DefaultKeyMap = KeyMap{
 	Up: key.NewBinding(
-		key.WithKeys("k", "up", "left"), // actual keybindings
-		key.WithHelp("↑/k", "Move up"),  // corresponding help text
+		key.WithKeys("k", "up", "left", "shift+tab"), // actual keybindings
+		key.WithHelp("↑/k", "Move up"),               // corresponding help text
 	),
 	Down: key.NewBinding(
-		key.WithKeys("j", "down", "right"),
+		key.WithKeys("j", "down", "right", "tab"),
 		key.WithHelp("↓/j", "Move down"),
 	),
 	Exit: key.NewBinding(
 		key.WithKeys("q", "ctrl+c"),
 		key.WithHelp("q/ctrl-c", "Exit program"),
-	),
-	Next: key.NewBinding(
-		key.WithKeys("tab", "shift+tab"),
-		key.WithHelp("tab", "Next field"),
 	),
 	Help: key.NewBinding(
 		key.WithKeys("?"),

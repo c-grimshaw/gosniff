@@ -27,7 +27,7 @@ func (m *model) View() string {
 			gap(1),
 			m.interfaceView(),
 			gap(1),
-			m.filterView(),
+			m.filter.View(),
 			gap(1),
 			buttonInputs),
 	)
@@ -60,14 +60,6 @@ func (m *model) interfaceView() (view string) {
 		}
 	}
 	return view
-}
-
-func (m *model) filterView() (view string) {
-	view = "Filter:"
-	if m.focusedFilter() || len(m.textinput.Value()) > 0 {
-		return lipgloss.JoinVertical(lipgloss.Left, view, focusedStyle.Render(m.textinput.View()))
-	}
-	return lipgloss.JoinVertical(lipgloss.Left, view, m.textinput.View())
 }
 
 func (m *model) submitView() (view string) {
