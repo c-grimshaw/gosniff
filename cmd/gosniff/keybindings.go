@@ -27,7 +27,7 @@ func (k KeyMap) FullHelp() [][]key.Binding {
 	}
 }
 
-// DefaultKeyMap are the default key bindings
+// DefaultKeyMap describes the default key bindings
 var DefaultKeyMap = KeyMap{
 	Up: key.NewBinding(
 		key.WithKeys("k", "up", "left"), // actual keybindings

@@ -185,28 +185,15 @@ func waitForStop(stop chan bool) tea.Cmd {
 	}
 }
 
-func (m *model) focusInterfaces() { m.focus = 0 }
-func (m *model) focusedInterfaces() bool {
-	return m.focus >= 0 && m.focus < len(m.interfaces)
-}
-func (m *model) focusFilter() {
-	m.focus = len(m.interfaces)
-}
-func (m *model) focusedFilter() bool {
-	return m.focus == len(m.interfaces)
-}
-func (m *model) focusSubmit() {
-	m.focus = len(m.interfaces) + 1
-}
-func (m *model) focusedSubmit() bool {
-	return m.focus == len(m.interfaces)+1
-}
-func (m *model) focusClear() {
-	m.focus = len(m.interfaces) + 2
-}
-func (m *model) focusedClear() bool {
-	return m.focus == len(m.interfaces)+2
-}
+func (m *model) focusInterfaces()        { m.focus = 0 }
+func (m *model) focusFilter()            { m.focus = len(m.interfaces) }
+func (m *model) focusSubmit()            { m.focus = len(m.interfaces) + 1 }
+func (m *model) focusClear()             { m.focus = len(m.interfaces) + 2 }
+func (m *model) focusedInterfaces() bool { return m.focus >= 0 && m.focus < len(m.interfaces) }
+func (m *model) focusedFilter() bool     { return m.focus == len(m.interfaces) }
+func (m *model) focusedSubmit() bool     { return m.focus == len(m.interfaces)+1 }
+func (m *model) focusedClear() bool      { return m.focus == len(m.interfaces)+2 }
+
 func mod(x, m int) int {
 	return (x%m + m) % m
 }
