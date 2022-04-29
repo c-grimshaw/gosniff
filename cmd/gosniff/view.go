@@ -17,7 +17,7 @@ var (
 func (m *model) View() string {
 	var view strings.Builder
 	buttonInputs := lipgloss.JoinVertical(lipgloss.Center,
-		lipgloss.JoinHorizontal(lipgloss.Center, m.submitView(), "      ", m.clearView()),
+		lipgloss.JoinHorizontal(lipgloss.Center, m.submit.View(), "      ", m.clear.View()),
 		gap(1),
 		m.helpView())
 	view.WriteString(
@@ -58,26 +58,6 @@ func (m *model) interfaceView() (view string) {
 		for _, addr := range choice.Addresses {
 			view = lipgloss.JoinVertical(lipgloss.Left, view, placeholderStyle.Render(fmt.Sprintf("       - [%v]", addr.IP)))
 		}
-	}
-	return view
-}
-
-func (m *model) submitView() (view string) {
-	view = "[ Start ]"
-	if m.recording {
-		view = "[ Stop ]"
-	}
-
-	if m.focusedSubmit() {
-		view = focusedStyle.Render(view)
-	}
-	return view
-}
-
-func (m *model) clearView() (view string) {
-	view = "[ Clear ]"
-	if m.focusedClear() {
-		view = focusedStyle.Render(view)
 	}
 	return view
 }

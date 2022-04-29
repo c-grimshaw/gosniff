@@ -58,7 +58,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, DefaultKeyMap.Enter):
 			m.handleEnter()
 		case key.Matches(msg, DefaultKeyMap.Help):
-			if !(m.focusedFilter()) {
+			if !(m.filter.Focused) {
 				m.help.ShowAll = !m.help.ShowAll
 			}
 		}
@@ -122,40 +122,56 @@ func (m *model) cursorDown() {
 // handleEnter controls enter behaviour over input fields
 // TODO: Need better enumeration for inputs.
 func (m *model) handleEnter() {
-	switch i := m.focus; {
-
-	// cursor over interfaces
-	case i < len(m.interfaces):
-		m.selected = m.focus
+	switch m.focus {
 
 	// cursor over filter
-	case i == len(m.interfaces):
+	case m.focusedFilterIdx():
 		break
 
 	// cursor over submit
-	case i == len(m.interfaces)+1:
+	case m.focusedSubmitIdx():
 		if !m.recording {
 			m.recording = true
+			m.submit.SetName("Stop")
 			go m.listenForPackets()
 		} else {
+			m.submit.SetName("Start")
 			m.stopChan <- true
 		}
 
 	// cursor over clear
-	case i == len(m.interfaces)+2:
-		m.content = ""
-		m.viewport.SetContent(m.content)
+	case m.focusedClearIdx():
+		m.clearViewport()
+
+	// default case: cursor over interfaces
+	default:
+		m.selected = m.focus
 	}
 }
 
+func (m *model) clearViewport() {
+	m.content = ""
+	m.viewport.SetContent(m.content)
+}
+
 func (m *model) checkFocus() {
-	switch i := m.focus; {
-	case i < len(m.interfaces):
-		m.filter.Focused = false
-	case i == len(m.interfaces):
+	switch m.focus {
+	case m.focusedFilterIdx():
 		m.filter.Focused = true
-	case i > len(m.interfaces):
+		m.submit.SetFocus(false)
+		m.clear.SetFocus(false)
+	case m.focusedSubmitIdx():
 		m.filter.Focused = false
+		m.submit.SetFocus(true)
+		m.clear.SetFocus(false)
+	case m.focusedClearIdx():
+		m.filter.Focused = false
+		m.submit.SetFocus(false)
+		m.clear.SetFocus(true)
+	default:
+		m.filter.Focused = false
+		m.submit.SetFocus(false)
+		m.clear.SetFocus(false)
 	}
 }
 
@@ -175,12 +191,12 @@ func waitForStop(stop chan bool) tea.Cmd {
 	}
 }
 
-func (m *model) focusInterfaces()        { m.focus = 0 }
-func (m *model) focusFilter()            { m.focus = len(m.interfaces) }
-func (m *model) focusSubmit()            { m.focus = len(m.interfaces) + 1 }
-func (m *model) focusClear()             { m.focus = len(m.interfaces) + 2 }
-func (m *model) focusedInterfaces() bool { return m.focus >= 0 && m.focus < len(m.interfaces) }
-func (m *model) focusedFilter() bool     { return m.focus == len(m.interfaces) }
+func (m *model) focusedFilterIdx() int { return len(m.interfaces) }
+func (m *model) focusedSubmitIdx() int { return len(m.interfaces) + 1 }
+func (m *model) focusedClearIdx() int  { return len(m.interfaces) + 2 }
+
+func (m *model) focusedInterfaces() bool { return m.focus < len(m.interfaces) }
+func (m *model) focusedFilter() bool     { return m.filter.Focused }
 func (m *model) focusedSubmit() bool     { return m.focus == len(m.interfaces)+1 }
 func (m *model) focusedClear() bool      { return m.focus == len(m.interfaces)+2 }
 

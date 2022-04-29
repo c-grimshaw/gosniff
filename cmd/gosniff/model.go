@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/c-grimshaw/gosniff/pkg/models/button"
 	"github.com/c-grimshaw/gosniff/pkg/models/filter"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -22,6 +23,8 @@ type model struct {
 	content                 string
 	keys                    KeyMap
 	help                    help.Model
+	submit                  button.Model
+	clear                   button.Model
 	filter                  filter.Model
 	viewport                viewport.Model
 	packetChan              chan (gopacket.Packet)
@@ -44,6 +47,8 @@ func NewModel() *model {
 		os.Exit(1)
 	}
 
+	submit, clear := button.New("Start"), button.New("Clear")
+
 	help := help.New()
 	help.ShowAll = true
 
@@ -51,6 +56,8 @@ func NewModel() *model {
 		interfaces: interfaces,
 		keys:       DefaultKeyMap,
 		help:       help,
+		submit:     submit,
+		clear:      clear,
 		inputs:     len(interfaces) + NUM_INPUTS,
 		filter:     filter.New(),
 		viewport:   viewport.New(80, 30),
