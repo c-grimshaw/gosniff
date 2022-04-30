@@ -1,14 +1,10 @@
 package filter
 
 import (
+	"github.com/c-grimshaw/gosniff/pkg/style"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-)
-
-var (
-	focusedStyle = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("205"))
-	noStyle      = lipgloss.NewStyle()
 )
 
 // Model is the filter model struct
@@ -34,18 +30,17 @@ func (m Model) Init() tea.Cmd {
 
 // Update contains the filter's update loop, which currently checks for focus
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
-	var cmd tea.Cmd
-
 	if m.Focused() {
 		m.textinput.Focus()
-		m.textinput.PromptStyle = focusedStyle
-		m.textinput.TextStyle = focusedStyle
+		m.textinput.PromptStyle = style.Focused
+		m.textinput.TextStyle = style.Focused
 	} else {
 		m.textinput.Blur()
-		m.textinput.PromptStyle = noStyle
-		m.textinput.TextStyle = noStyle
+		m.textinput.PromptStyle = style.None
+		m.textinput.TextStyle = style.None
 	}
 
+	var cmd tea.Cmd
 	m.textinput, cmd = m.textinput.Update(msg)
 	return m, cmd
 }
@@ -54,7 +49,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 func (m Model) View() string {
 	view := "Filter:"
 	if m.Focused() || len(m.Value()) > 0 {
-		return lipgloss.JoinVertical(lipgloss.Left, view, focusedStyle.Render(m.textinput.View()))
+		return lipgloss.JoinVertical(lipgloss.Left, view, style.Focused.Render(m.textinput.View()))
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, view, m.textinput.View())
 }
@@ -65,7 +60,7 @@ func (m Model) Value() string {
 }
 
 // SetFocus sets the focus state of the model
-func (m Model) SetFocus(state bool) {
+func (m *Model) SetFocus(state bool) {
 	m.focused = state
 }
 
