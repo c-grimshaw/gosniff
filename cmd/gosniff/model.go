@@ -13,9 +13,6 @@ import (
 	"github.com/google/gopacket/pcap"
 )
 
-// Including filter, submit, and clear
-const NUM_INPUTS = 3
-
 type model struct {
 	interfaces              []pcap.Interface
 	selected, focus, inputs int
@@ -58,7 +55,6 @@ func NewModel() *model {
 		help:       help,
 		submit:     submit,
 		clear:      clear,
-		inputs:     len(interfaces) + NUM_INPUTS,
 		filter:     filter.New(),
 		viewport:   viewport.New(80, 30),
 		packetChan: make(chan gopacket.Packet),
