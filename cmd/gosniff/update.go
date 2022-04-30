@@ -58,7 +58,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, DefaultKeyMap.Enter):
 			m.handleEnter()
 		case key.Matches(msg, DefaultKeyMap.Help):
-			if !(m.filter.Focused) {
+			if !(m.filter.Focused()) {
 				m.help.ShowAll = !m.help.ShowAll
 			}
 		}
@@ -157,19 +157,19 @@ func (m *model) clearViewport() {
 func (m *model) checkFocus() {
 	switch m.focus {
 	case m.focusedFilterIdx():
-		m.filter.Focused = true
+		m.filter.SetFocus(true)
 		m.submit.SetFocus(false)
 		m.clear.SetFocus(false)
 	case m.focusedSubmitIdx():
-		m.filter.Focused = false
+		m.filter.SetFocus(false)
 		m.submit.SetFocus(true)
 		m.clear.SetFocus(false)
 	case m.focusedClearIdx():
-		m.filter.Focused = false
+		m.filter.SetFocus(false)
 		m.submit.SetFocus(false)
 		m.clear.SetFocus(true)
 	default:
-		m.filter.Focused = false
+		m.filter.SetFocus(false)
 		m.submit.SetFocus(false)
 		m.clear.SetFocus(false)
 	}
@@ -196,7 +196,6 @@ func (m *model) focusedSubmitIdx() int { return len(m.interfaces) + 1 }
 func (m *model) focusedClearIdx() int  { return len(m.interfaces) + 2 }
 
 func (m *model) focusedInterfaces() bool { return m.focus < len(m.interfaces) }
-func (m *model) focusedFilter() bool     { return m.filter.Focused }
 func (m *model) focusedSubmit() bool     { return m.focus == len(m.interfaces)+1 }
 func (m *model) focusedClear() bool      { return m.focus == len(m.interfaces)+2 }
 

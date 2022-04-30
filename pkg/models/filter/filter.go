@@ -11,11 +11,13 @@ var (
 	noStyle      = lipgloss.NewStyle()
 )
 
+// Model is the filter model struct
 type Model struct {
 	textinput textinput.Model
-	Focused   bool
+	focused   bool
 }
 
+// New returns a filter model with default parameters
 func New() Model {
 	ti := textinput.New()
 	ti.Placeholder = "tcp and port 80"
@@ -25,15 +27,16 @@ func New() Model {
 	return Model{textinput: ti}
 }
 
-// Blinking isn't working?
+// Init contains commands that are executed upon model initialization
 func (m Model) Init() tea.Cmd {
 	return m.textinput.SetCursorMode(textinput.CursorBlink)
 }
 
+// Update contains the filter's update loop, which currently checks for focus
 func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	var cmd tea.Cmd
 
-	if m.Focused {
+	if m.Focused() {
 		m.textinput.Focus()
 		m.textinput.PromptStyle = focusedStyle
 		m.textinput.TextStyle = focusedStyle
@@ -47,14 +50,26 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	return m, cmd
 }
 
+// View renders the filter into a text string
 func (m Model) View() string {
 	view := "Filter:"
-	if m.Focused || len(m.Value()) > 0 {
+	if m.Focused() || len(m.Value()) > 0 {
 		return lipgloss.JoinVertical(lipgloss.Left, view, focusedStyle.Render(m.textinput.View()))
 	}
 	return lipgloss.JoinVertical(lipgloss.Left, view, m.textinput.View())
 }
 
+// Value returns the content of the filter as a string
 func (m Model) Value() string {
 	return m.textinput.Value()
+}
+
+// SetFocus sets the focus state of the model
+func (m Model) SetFocus(state bool) {
+	m.focused = state
+}
+
+// Focused returns the focus state of the model
+func (m Model) Focused() bool {
+	return m.focused
 }
