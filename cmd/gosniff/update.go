@@ -109,13 +109,13 @@ func (m *model) listenForPackets() {
 
 // cursorUp moves the cursor up under the interfaces input
 func (m *model) cursorUp() {
-	m.focus = mod(m.focus-1, m.inputs)
+	m.focus = mod(m.focus-1, len(m.interfaces)+3)
 	m.checkFocus()
 }
 
 // cursorDown moves the cursor down under the interfaces input
 func (m *model) cursorDown() {
-	m.focus = mod(m.focus+1, m.inputs)
+	m.focus = mod(m.focus+1, len(m.interfaces)+3)
 	m.checkFocus()
 }
 
