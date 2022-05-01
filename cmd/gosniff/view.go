@@ -33,7 +33,7 @@ func (m *model) View() string {
 	)
 
 	block := noStyle.MaxWidth(100).Render(view.String())
-	viewport := noStyle.MaxWidth(100).Render(m.viewportView())
+	viewport := lipgloss.JoinVertical(lipgloss.Center, noStyle.MaxWidth(80).Render(m.viewportView()), m.errorLog.View())
 	return lipgloss.JoinHorizontal(lipgloss.Left, block, viewport)
 }
 

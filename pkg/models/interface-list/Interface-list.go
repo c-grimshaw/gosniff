@@ -1,54 +1,46 @@
-package netinterfaces
+package interfacelist
 
 import (
 	"fmt"
 
-	"github.com/c-grimshaw/gosniff/pkg/style"
+	interfaceitem "github.com/c-grimshaw/gosniff/pkg/models/interface-item"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/google/gopacket/pcap"
 )
 
 // Model defines the structure of the component
 type Model struct {
-	cursor, selected int
-	interfaces       []pcap.Interface
+	cursor, checked int
+	interfaces      []interfaceitem.Model
 }
 
 // New returns a list of network interfaces with default parameters
-func New() Model {
-	interfaces, err := GetInterfaces()
+func New(cursor, checked string) Model {
+	interfaces, err := getInterfaces()
 	if err != nil {
 		panic(err)
 	}
+
+	interfaceList := make([]interfaceitem.Model, len(interfaces))
+	for i, iface := range interfaces {
+		interfaceList[i] = interfaceitem.New(iface, cursor, checked)
+	}
 	return Model{
-		interfaces: interfaces,
+		interfaces: interfaceList,
 	}
 }
 
 // View describes the string representation of the network interface list
 func (m Model) View() (view string) {
 	view = "Interface:"
-	for i, choice := range m.interfaces {
-		cursor := " "
-		if i == m.selected {
-			cursor = ">"
-		}
-
-		row := fmt.Sprintf("%s [ ] %s", cursor, choice.Description)
-		if m.selected == i {
-			row = style.Focused.Render(fmt.Sprintf("%s [x] %s", cursor, choice.Description))
-		}
-
-		view = lipgloss.JoinVertical(lipgloss.Left, view, row)
-		for _, addr := range choice.Addresses {
-			view = lipgloss.JoinVertical(lipgloss.Left, view, style.Placeholder.Render(fmt.Sprintf("       - [%v]", addr.IP)))
-		}
+	for _, item := range m.interfaces {
+		view = lipgloss.JoinVertical(lipgloss.Left, view, item.View())
 	}
 	return view
 }
 
-// GetInterfaces returns all host interfaces in string format
-func GetInterfaces() (interfaces []pcap.Interface, err error) {
+// getInterfaces returns all host interfaces in string format
+func getInterfaces() (interfaces []pcap.Interface, err error) {
 	interfaces, err = pcap.FindAllDevs()
 	if err != nil {
 		fmt.Println("Error: No host interfaces")

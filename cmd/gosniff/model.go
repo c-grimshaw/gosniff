@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/c-grimshaw/gosniff/pkg/models/button"
+	"github.com/c-grimshaw/gosniff/pkg/models/errorlog"
 	"github.com/c-grimshaw/gosniff/pkg/models/filter"
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -23,9 +24,10 @@ type model struct {
 	submit                  button.Model
 	clear                   button.Model
 	filter                  filter.Model
+	errorLog                errorlog.Model
 	viewport                viewport.Model
 	packetChan              chan (gopacket.Packet)
-	stopChan                chan (bool)
+	stopChan                chan (struct{})
 }
 
 // Init contains initial I/O commands executed by the model
@@ -55,9 +57,10 @@ func NewModel() *model {
 		help:       help,
 		submit:     submit,
 		clear:      clear,
+		errorLog:   errorlog.New(),
 		filter:     filter.New(),
 		viewport:   viewport.New(80, 30),
 		packetChan: make(chan gopacket.Packet),
-		stopChan:   make(chan bool),
+		stopChan:   make(chan struct{}),
 	}
 }
