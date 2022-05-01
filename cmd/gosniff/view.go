@@ -33,7 +33,7 @@ func (m *model) View() string {
 	)
 
 	block := noStyle.MaxWidth(100).Render(view.String())
-	viewport := noStyle.MaxWidth(100).Render(m.viewportView())
+	viewport := lipgloss.JoinVertical(lipgloss.Center, noStyle.MaxWidth(80).Render(m.viewportView()), m.errorLog.View())
 	return lipgloss.JoinHorizontal(lipgloss.Left, block, viewport)
 }
 
@@ -77,14 +77,15 @@ func (m model) footerView() (view string) {
 	return lipgloss.JoinHorizontal(lipgloss.Center, line, view)
 }
 
-func (m *model) helpView() string {
+func (m model) helpView() string {
 	return m.help.View(m.keys)
 }
 
-func (m *model) viewportView() string {
+func (m model) viewportView() string {
 	return fmt.Sprintf("%s\n%s\n%s", m.headerView(), m.viewport.View(), m.footerView())
 }
 
+// gap is a helper function for layout
 func gap(n int) string {
 	return strings.Repeat("\n", n)
 }

@@ -2,7 +2,6 @@ package gosniff
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -40,8 +39,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, waitForPacket(m.packetChan)
 
 	case stopMsg:
-		m.stopChan <- false
 		m.recording = false
+		m.stopChan <- struct{}{}
 		return m, waitForStop(m.stopChan)
 
 	case tea.WindowSizeMsg:
@@ -85,15 +84,15 @@ type stopMsg struct{}
 func (m *model) listenForPackets() {
 	iface := m.interfaces[m.selected].Name
 	handle, err := pcap.OpenLive(iface, snaplen, promisc, timeout)
-	// TODO: Return errors on prompt
 	if err != nil {
-		log.Panicln(err)
+		m.errorLog.SetContent("Error: Invalid interface!")
+		return
 	}
 	defer handle.Close()
 
-	// TODO: Return errors on prompt
 	if err := handle.SetBPFFilter(m.filter.Value()); err != nil {
-		log.Panicln(err)
+		m.errorLog.SetContent("Error: Invalid filter!")
+		return
 	}
 
 	source := gopacket.NewPacketSource(handle, handle.LinkType())
@@ -109,18 +108,17 @@ func (m *model) listenForPackets() {
 
 // cursorUp moves the cursor up under the interfaces input
 func (m *model) cursorUp() {
-	m.focus = mod(m.focus-1, m.inputs)
+	m.focus = mod(m.focus-1, len(m.interfaces)+3)
 	m.checkFocus()
 }
 
 // cursorDown moves the cursor down under the interfaces input
 func (m *model) cursorDown() {
-	m.focus = mod(m.focus+1, m.inputs)
+	m.focus = mod(m.focus+1, len(m.interfaces)+3)
 	m.checkFocus()
 }
 
 // handleEnter controls enter behaviour over input fields
-// TODO: Need better enumeration for inputs.
 func (m *model) handleEnter() {
 	switch m.focus {
 
@@ -136,7 +134,7 @@ func (m *model) handleEnter() {
 			go m.listenForPackets()
 		} else {
 			m.submit.SetName("Start")
-			m.stopChan <- true
+			m.stopChan <- struct{}{}
 		}
 
 	// cursor over clear
@@ -184,7 +182,7 @@ func waitForPacket(packet chan gopacket.Packet) tea.Cmd {
 }
 
 // waitForStop is a listener that emits a stopMsg when the recording is stopped
-func waitForStop(stop chan bool) tea.Cmd {
+func waitForStop(stop chan struct{}) tea.Cmd {
 	return func() tea.Msg {
 		<-stop
 		return stopMsg{}
